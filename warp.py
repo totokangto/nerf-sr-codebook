@@ -98,7 +98,7 @@ class LLFFDataset():
             get_ray_directions(self.img_wh[1], self.img_wh[0], self.focal, True) # (H, W, 3)
         
         nerf_depths = sorted(glob.glob(os.path.join(self.result_dir, '*fine-depth-ori.npz')))
-        for i, image_path in enumerate(tqdm(self.image_paths)):
+        for i, image_path in enumerate(tqdm(self.image_paths)):c
             img = Image.open(image_path).convert('RGB')
             img = img.resize(self.img_wh, Image.LANCZOS)
             img = self.transform(img) # (3, h, w)
@@ -177,13 +177,16 @@ class LLFFDataset():
             
 
     def define_transforms(self):
+        # Converts a PIL Image or numpy.ndarray (H x W x C) in the range [0, 255] to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0] 
         self.transform = T.ToTensor()
 
 width = 504
 height = 378
 
-for scene in ['room']:
+data_root = '/data/csj000714/data'
+
+for scene in ['fern']:
     print(scene)
-    root_dir = f'/mnt/nas/raid/10102/nerf_data/nerf_llff_data/{scene}'
+    root_dir = f'{data_root}/nerf_llff_data/{scene}'
     result_dir = f'./checkpoints/nerf-sr/llff-{scene}-{height}x{width}-ni64-dp-ds2/30_val_vis'
     ds = LLFFDataset(root_dir, result_dir, width, height)

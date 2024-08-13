@@ -21,7 +21,9 @@ import einops
 from .nerf_downX_model import GANLoss
 from .criterions import SSIM
 
-class RefineModel(BaseModel):
+from .network_enhanced import EnhancerNetwork
+from .network_codebook import VQCodebook, Codebook
+
     @staticmethod
     def modify_commandline_options(parser):
         parser.add_argument('--refine_network', type=str, default='unetgenerator')
@@ -50,9 +52,12 @@ class RefineModel(BaseModel):
 
         self.model_names = ['Refine']
         self.netRefine = init_net(find_network_using_name(opt.refine_network)(opt), opt)
-
+        # Enhancer Network 초기화
+        self.netEnhancer = EnhancerNetwork(in_channels=3, num_residual_blocks=5).to(self.device)
+        
         self.models = {
-            'R': self.netRefine
+            'R': self.netRefine,
+            'Enhancer': self.netEnhancer,  # Enhancer Network 추가
         }
         self.losses = {
             'vgg': VGGPerceptualLoss(opt),
@@ -92,11 +97,28 @@ class RefineModel(BaseModel):
                 self.optimizers.append(self.optimizer_D)
     
     def forward(self):
+
+        # data_ref_patches의 채널 수가 여러 개일 수 있으므로, 이를 처리하기 위한 코드 추가
+        if self.data_ref_patches.shape[1] > 3:
+            # num_ref_patches가 1보다 큰 경우
+            # num_ref_patches = self.data_ref_patches.shape[1] // 3
+            data_ref_patches = self.data_ref_patches.view(self.data_ref_patches.shape[0] * self.opt.num_ref_patches, 3, self.data_ref_patches.shape[2], self.data_ref_patches.shape[3])
+        else:
+            # num_ref_patches가 1인 경우
+            data_ref_patches = self.data_ref_patches
+        
+        # enhanced: Enhancer Network로 data_ref_patches를 사용해 data_sr_patch 보강
+        enhanced_sr_patch = self.netEnhancer(self.data_sr_patch, data_ref_patches)
+        
         if self.opt.refine_network == 'unetgenerator':
-            input = torch.cat((self.data_sr_patch, self.data_ref_patches), dim=1)
+            # original
+            # input = torch.cat((self.data_sr_patch, self.data_ref_patches), dim=1)
+            # enhanced
+            input = torch.cat((enhanced_sr_patch, self.data_ref_patches), dim=1)
+
             self.pred = self.netRefine(input)
         else:
-            self.pred = self.netRefine(self.data_sr_patch, self.data_ref_patches)
+            self.pred = self.netRefine(self.data_sr_patch, enhanced_sr_patch)
         self.sr_gt_refine = Visualizee('image', torch.cat([self.data_sr_patch[0], self.data_gt_patch[0], self.pred[0].detach()], dim=2), timestamp=True, name='sr_gt_refine', data_format='CHW', range=(-1, 1), img_format='png')
 
     def backward_D(self):
@@ -143,10 +165,10 @@ class RefineModel(BaseModel):
             self.optimize_parameters_gan()
             return
         self.forward()
-        self.set_requires_grad(self.netRefine, True) 
+        self.set_requires_grad([self.netRefine, self.netEnhancer], True) 
         self.optimizer.zero_grad()  
         self.backward()           
-        self.optimizer.step()   
+        self.optimizer.step()
 
     def calculate_losses(self):
         self.loss_mse = 0.0

@@ -16,6 +16,8 @@ from data.llff_dataset import \
 from torchvision.transforms import functional as TF
 import cv2
 
+from utils.visualizer import Visualizee
+
 class LLFFRefineDataset(BaseDataset):
     @staticmethod
     def modify_commandline_options(parser):
@@ -136,7 +138,10 @@ class LLFFRefineDataset(BaseDataset):
                 #     T.ColorJitter.get_params(brightness=(0.9, 1.1), contrast=(0.9, 1.1), saturation=(0.9, 1.1), hue=(-0.05, 0.05))
                 # gt_pspc_img = self.jitterImage(gt_pspc_img, fn_idx, b, c, s, h)
                 # sr_pspc_img = self.jitterImage(sr_pspc_img, fn_idx, b, c, s, h)
-                # gt_pspc_img.save(f'pspc/{i}-pspc_img.png')
+                gt_pspc_img.save(f'pspc/{i}-pspc_img_gt.png')
+                sr_pspc_img.save(f'pspc/{i}-pspc_img_sr.png')
+                # self.sr_gt_pspc_img = Visualizee('image', torch.cat([sr_pspc_img, gt_pspc_img], dim=2), timestamp=True, name='sr_gt_pspc_img', data_format='CHW', range=(-1, 1), img_format='png')
+
                 gt_pspc_imgs.append(self.transform(gt_pspc_img))
                 sr_pspc_imgs.append(self.transform(sr_pspc_img))
             self.gt_pspc_imgs = torch.stack(gt_pspc_imgs, 0)
@@ -214,7 +219,7 @@ class LLFFRefineDataset(BaseDataset):
     def __getitem__(self, idx):
         if self.split == 'train':
             img_idx = idx % self.opt.aug_num
-            wl, hl, wh, hh = self.bboxs[img_idx]
+            wl, hl, wh, hh = self.bboxs[img_idx] # wl: width low, wh: width high, hl: height low, hh: height high
             # if wl >= wh - self.opt.patch_len:
             #     print(wl, wh)
             # get positions
@@ -232,7 +237,16 @@ class LLFFRefineDataset(BaseDataset):
             for _ in range(self.opt.num_ref_patches):
                 ref_x_start = np.random.randint(ref_wl, ref_wh)
                 ref_y_start = np.random.randint(ref_hl, ref_hh)
-                ref_patches.append(self.gt_img[:, ref_y_start: ref_y_start+self.opt.patch_len, ref_x_start: ref_x_start+self.opt.patch_len])
+                # patch: original
+                # ref_patches.append(self.gt_img[:, ref_y_start: ref_y_start+self.opt.patch_len, ref_x_start: ref_x_start+self.opt.patch_len])
+                
+                # patch: zero data
+                # ref_patches.append(torch.zeros_like(gt_patch)) 
+                
+                # patch: same area on sr image
+                ref_patches.append(self.gt_pspc_imgs[img_idx][:, y_start: y_start+self.opt.patch_len, x_start: x_start+self.opt.patch_len])
+            self.sr_gt_ref_patches = Visualizee('image', torch.cat([sr_patch, gt_patch, ref_patches[0]], dim=2), timestamp=True, name='sr_gt_ref_patches', data_format='CHW', range=(-1, 1), img_format='png')
+
             if self.opt.with_gt_patch:
                 ref_patches[np.random.randint(self.opt.num_ref_patches)] = gt_patch
             ref_patches = torch.stack(ref_patches, 0) # (num_ref_patches, 3, patch_len, patch_len)

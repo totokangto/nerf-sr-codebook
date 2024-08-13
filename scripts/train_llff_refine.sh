@@ -4,9 +4,12 @@ H=378
 accelerator="dp"
 downscale=2
 batch_size=32
+option="patchsamearea8_enhancernetwork"
 
-python train_refine.py --name llff-refine-$dataset-${H}x${W}-ni${N_importance}-${accelerator}-ds${downscale} --accelerator $accelerator \
-    --dataset_mode llff_refine --dataset_root /mnt/nas/raid/10017/nerf_data/nerf_llff_data/${dataset} \
+data_root='/data/csj000714/data'
+
+python train_refine.py --name llff-refine-$dataset-${H}x${W}-ni${N_importance}-${accelerator}-ds${downscale}-${option} --accelerator $accelerator \
+    --dataset_mode llff_refine --dataset_root ${data_root}/nerf_llff_data/${dataset} \
     --checkpoints_dir ./checkpoints/nerf-sr-refine --summary_dir ./logs/nerf-sr-refine \
     --img_wh $W $H --batch_size $batch_size \
     --n_epochs 3 --n_epochs_decay 0 \

@@ -5,8 +5,9 @@ accelerator="dp"
 downscale=2
 N_importance=64
 batch_size=512
+
 python train_blender.py --name blender-down${downscale}-$dataset-${H}x${W}-ni${N_importance}-${accelerator}-ds${downscale} --accelerator $accelerator \
-    --dataset_mode blender_downX --dataset_root /mnt/nas/raid/10017/nerf_data/nerf_synthetic/${dataset} --val_epoch_split test \
+    --dataset_mode blender_downX --dataset_root /data/csj000714/data/nerf_synthetic/${dataset} --val_epoch_split test \
     --checkpoints_dir ./checkpoints/nerf-sr --summary_dir ./logs/nerf-sr \
     --img_wh $W $H --batch_size $batch_size \
     --n_epochs 20 --n_epochs_decay 10 \
