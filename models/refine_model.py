@@ -21,7 +21,7 @@ import einops
 from .nerf_downX_model import GANLoss
 from .criterions import SSIM
 
-from .network_enhancer import EnhancerNetwork
+from .network_enhancer import EnhancerNetwork, FeatureLearningNetwork, FeatureLearningNetwork1by1
 from .network_codebook import VQCodebook, Codebook
 
 class RefineModel(BaseModel):
@@ -62,7 +62,11 @@ class RefineModel(BaseModel):
         self.netRefine = init_net(find_network_using_name(opt.refine_network)(opt), opt)
 
         # Enhancer Network 초기화
-        self.netEnhancer = EnhancerNetwork(in_channels=3, num_residual_blocks=5).to(self.device)
+        # self.netEnhancer = EnhancerNetwork(in_channels=3, num_residual_blocks=5).to(self.device)
+        # Initialize the FeatureLearningNetwork as netEnhancer
+        # self.netEnhancer = FeatureLearningNetwork(input_nc=3, ngf=opt.ngf).to(self.device)
+        # Initialize the FeatureLearningNetwork as netEnhancer
+        self.netEnhancer = FeatureLearningNetwork1by1(input_nc=3, ngf=opt.ngf).to(self.device)
         
         # Codebook 초기화
         # self.codebook = Codebook(opt.code_size, opt.num_codes).to(self.device)

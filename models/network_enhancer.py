@@ -2,10 +2,52 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+class FeatureLearningNetwork(nn.Module):
+    def __init__(self, input_nc, ngf=64, norm_layer=nn.BatchNorm2d):
+        super(FeatureLearningNetwork, self).__init__()
+        self.conv1 = nn.Conv2d(input_nc, ngf, kernel_size=3, stride=1, padding=1)
+        self.norm1 = norm_layer(ngf)
+        self.relu1 = nn.ReLU(True)
+        self.conv2 = nn.Conv2d(ngf, ngf, kernel_size=3, stride=1, padding=1)
+        self.norm2 = norm_layer(ngf)
+        self.relu2 = nn.ReLU(True)
+        self.conv3 = nn.Conv2d(ngf, ngf, kernel_size=3, stride=1, padding=1)
+        self.norm3 = norm_layer(ngf)
+        self.relu3 = nn.ReLU(True)
+        self.conv4 = nn.Conv2d(ngf, input_nc, kernel_size=3, stride=1, padding=1)
+        
+    def forward(self, x):
+        x = self.relu1(self.norm1(self.conv1(x)))
+        x = self.relu2(self.norm2(self.conv2(x)))
+        x = self.relu3(self.norm3(self.conv3(x)))
+        x = self.conv4(x)
+        return x
 
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+class FeatureLearningNetwork1by1(nn.Module):
+    def __init__(self, input_nc, ngf=64, norm_layer=nn.BatchNorm2d):
+        super(FeatureLearningNetwork1by1, self).__init__()
+        
+        # 1x1 Convolutions to learn channel-wise interactions
+        self.conv1 = nn.Conv2d(input_nc, ngf, kernel_size=1, stride=1, padding=0)
+        self.norm1 = norm_layer(ngf)
+        self.relu1 = nn.ReLU(True)
+        
+        self.conv2 = nn.Conv2d(ngf, ngf, kernel_size=1, stride=1, padding=0)
+        self.norm2 = norm_layer(ngf)
+        self.relu2 = nn.ReLU(True)
+        
+        self.conv3 = nn.Conv2d(ngf, ngf, kernel_size=1, stride=1, padding=0)
+        self.norm3 = norm_layer(ngf)
+        self.relu3 = nn.ReLU(True)
+        
+        self.conv4 = nn.Conv2d(ngf, input_nc, kernel_size=1, stride=1, padding=0)
+        
+    def forward(self, x):
+        x = self.relu1(self.norm1(self.conv1(x)))
+        x = self.relu2(self.norm2(self.conv2(x)))
+        x = self.relu3(self.norm3(self.conv3(x)))
+        x = self.conv4(x)
+        return x
 
 class ResidualBlock(nn.Module):
     def __init__(self, in_channels):
