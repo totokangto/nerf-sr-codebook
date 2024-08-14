@@ -348,7 +348,7 @@ class UnetGenerator(nn.Module, Configurable):
     @staticmethod
     def modify_commandline_options(parser):
         parser.add_argument('--learn_residual', action='store_true')
-        parser.add_argument('--input_nc', type=int, default=27)
+        parser.add_argument('--input_nc', type=int, default=6) # 3 for data_sr_patch and others for data_ref_patches (3 * num_ref_patches)
         parser.add_argument('--output_nc', type=int, default=3)
         parser.add_argument('--norm', type=str, default='batch', help='instance normalization or batch normalization [instance | batch | none]')
         parser.add_argument('--ngf', type=int, default=64)

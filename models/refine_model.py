@@ -24,6 +24,7 @@ from .criterions import SSIM
 from .network_enhanced import EnhancerNetwork
 from .network_codebook import VQCodebook, Codebook
 
+class RefineModel(BaseModel):
     @staticmethod
     def modify_commandline_options(parser):
         parser.add_argument('--refine_network', type=str, default='unetgenerator')
@@ -39,6 +40,10 @@ from .network_codebook import VQCodebook, Codebook
         # parser.add_argument('--patch_len', type=int, default=32)
         # parser.add_argument('--lambda_L1', type=float, default=100.0, help='weight for L1 loss')
 
+        parser.add_argument('--code_size', type=int, default=256)
+        parser.add_argument('--num_codes', type=int, default=512)
+        parser.add_argument('--commitment_cost', type=float, default=0.25)
+
         opt, _ = parser.parse_known_args()
         for key, network_name in opt.__dict__.items():
             if key.endswith('_network'):
@@ -52,12 +57,21 @@ from .network_codebook import VQCodebook, Codebook
 
         self.model_names = ['Refine']
         self.netRefine = init_net(find_network_using_name(opt.refine_network)(opt), opt)
+
         # Enhancer Network 초기화
         self.netEnhancer = EnhancerNetwork(in_channels=3, num_residual_blocks=5).to(self.device)
+        
+        # Codebook 초기화
+        # self.codebook = Codebook(opt.code_size, opt.num_codes).to(self.device)
+        self.codebook = VQCodebook(opt.code_size, opt.num_codes).to(self.device)
+        # 채널 수 조정을 위한 Conv2d 레이어 추가
+        self.channel_adjust = nn.Conv2d(in_channels=opt.code_size, out_channels=3, kernel_size=1).to(self.device)
+
         
         self.models = {
             'R': self.netRefine,
             'Enhancer': self.netEnhancer,  # Enhancer Network 추가
+            'Codebook': self.codebook,  # codebook Network 추가
         }
         self.losses = {
             'vgg': VGGPerceptualLoss(opt),
@@ -97,29 +111,32 @@ from .network_codebook import VQCodebook, Codebook
                 self.optimizers.append(self.optimizer_D)
     
     def forward(self):
-
-        # data_ref_patches의 채널 수가 여러 개일 수 있으므로, 이를 처리하기 위한 코드 추가
-        if self.data_ref_patches.shape[1] > 3:
-            # num_ref_patches가 1보다 큰 경우
-            # num_ref_patches = self.data_ref_patches.shape[1] // 3
-            data_ref_patches = self.data_ref_patches.view(self.data_ref_patches.shape[0] * self.opt.num_ref_patches, 3, self.data_ref_patches.shape[2], self.data_ref_patches.shape[3])
-        else:
-            # num_ref_patches가 1인 경우
-            data_ref_patches = self.data_ref_patches
+        # num_ref_patches가 8일 때 그 중 하나의 패치만 선택
+        selected_patch_idx = 0  # 0부터 7까지 선택 가능, 여기서는 첫 번째 패치를 선택
+        self.data_ref_patch = self.data_ref_patches[:, selected_patch_idx * 3:(selected_patch_idx + 1) * 3, :, :]
         
         # enhanced: Enhancer Network로 data_ref_patches를 사용해 data_sr_patch 보강
-        enhanced_sr_patch = self.netEnhancer(self.data_sr_patch, data_ref_patches)
+        # self.enhanced_sr_patch = self.netEnhancer(self.data_sr_patch)
+
+        # VQ-VAE Codebook을 이용하여 data_ref_patches를 생성 또는 보강
+        # enhanced_sr_patch = self.codebook(data_ref_patches)
+        enhanced_sr_patch, codebook_loss, commitment_loss, _ = self.codebook(self.data_ref_patch)
         
         if self.opt.refine_network == 'unetgenerator':
             # original
             # input = torch.cat((self.data_sr_patch, self.data_ref_patches), dim=1)
             # enhanced
-            input = torch.cat((enhanced_sr_patch, self.data_ref_patches), dim=1)
-
+            # input = torch.cat((enhanced_sr_patch, self.data_ref_patches), dim=1)
+            # codebook
+            input = torch.cat((self.data_sr_patch, enhanced_sr_patch), dim=1)
             self.pred = self.netRefine(input)
         else:
             self.pred = self.netRefine(self.data_sr_patch, enhanced_sr_patch)
         self.sr_gt_refine = Visualizee('image', torch.cat([self.data_sr_patch[0], self.data_gt_patch[0], self.pred[0].detach()], dim=2), timestamp=True, name='sr_gt_refine', data_format='CHW', range=(-1, 1), img_format='png')
+
+        # Save losses for later use
+        self.codebook_loss = codebook_loss
+        self.commitment_loss = commitment_loss
 
     def backward_D(self):
         """Calculate GAN loss for the discriminator"""
@@ -164,8 +181,9 @@ from .network_codebook import VQCodebook, Codebook
         if self.opt.refine_as_gan:
             self.optimize_parameters_gan()
             return
+
         self.forward()
-        self.set_requires_grad([self.netRefine, self.netEnhancer], True) 
+        self.set_requires_grad([self.netRefine, self.netEnhancer, self.codebook], True) 
         self.optimizer.zero_grad()  
         self.backward()           
         self.optimizer.step()
@@ -180,6 +198,7 @@ from .network_codebook import VQCodebook, Codebook
         if self.opt.refine_with_mse:
             self.loss_mse = self.losses['mse'](self.pred, self.data_gt_patch) * self.opt.lambda_refine_mse
         self.loss_tot = self.loss_vgg + self.loss_mse + self.loss_l1   
+        self.loss_tot += self.codebook_loss + self.opt.commitment_cost * self.commitment_loss
         
         if self.opt.refine_with_grad:
             self.loss_grad = self.losses['grad'](self.pred, self.data_gt_patch) * self.opt.lambda_refine_grad

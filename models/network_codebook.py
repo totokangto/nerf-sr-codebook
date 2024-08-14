@@ -28,7 +28,9 @@ class VQCodebook(nn.Module):
 
     def forward(self, z):
         # Flatten input
-        z_flattened = z.view(-1, self.code_size)
+        # z_flattened = z.view(-1, self.code_size)
+        # Flatten input using reshape instead of view
+        z_flattened = z.reshape(-1, self.code_size)
 
         # Calculate distances between z and embedding
         dists = torch.cdist(z_flattened, self.embedding.weight)
