@@ -122,7 +122,7 @@ class RefineModel(BaseModel):
         # VQ-VAE Codebook을 이용하여 data_ref_patches를 생성 또는 보강
         if self.opt.network_codebook:
             # enhanced_sr_patch = self.codebook(data_ref_patches)
-            enhanced_sr_patch, codebook_loss, commitment_loss, _ = self.codebook(self.data_ref_patch)
+            enhanced_sr_patch, codebook_loss, commitment_loss, _ = self.codebook(self.data_ref_patches)
         
         if self.opt.refine_network == 'unetgenerator':
             # original
