@@ -21,7 +21,7 @@ import einops
 from .nerf_downX_model import GANLoss
 from .criterions import SSIM
 
-from .network_enhanced import EnhancerNetwork
+from .network_enhancer import EnhancerNetwork
 from .network_codebook import VQCodebook, Codebook
 
 class RefineModel(BaseModel):
@@ -44,6 +44,9 @@ class RefineModel(BaseModel):
         parser.add_argument('--num_codes', type=int, default=512)
         parser.add_argument('--commitment_cost', type=float, default=0.25)
 
+        parser.add_argument('--network_enhancer', action='store_true')
+        parser.add_argument('--network_codebook', action='store_true')
+
         opt, _ = parser.parse_known_args()
         for key, network_name in opt.__dict__.items():
             if key.endswith('_network'):
@@ -64,9 +67,6 @@ class RefineModel(BaseModel):
         # Codebook 초기화
         # self.codebook = Codebook(opt.code_size, opt.num_codes).to(self.device)
         self.codebook = VQCodebook(opt.code_size, opt.num_codes).to(self.device)
-        # 채널 수 조정을 위한 Conv2d 레이어 추가
-        self.channel_adjust = nn.Conv2d(in_channels=opt.code_size, out_channels=3, kernel_size=1).to(self.device)
-
         
         self.models = {
             'R': self.netRefine,
@@ -116,27 +116,32 @@ class RefineModel(BaseModel):
         self.data_ref_patch = self.data_ref_patches[:, selected_patch_idx * 3:(selected_patch_idx + 1) * 3, :, :]
         
         # enhanced: Enhancer Network로 data_ref_patches를 사용해 data_sr_patch 보강
-        # self.enhanced_sr_patch = self.netEnhancer(self.data_sr_patch)
+        if self.opt.network_enhancer:
+            enhanced_sr_patch = self.netEnhancer(self.data_sr_patch)
 
         # VQ-VAE Codebook을 이용하여 data_ref_patches를 생성 또는 보강
-        # enhanced_sr_patch = self.codebook(data_ref_patches)
-        enhanced_sr_patch, codebook_loss, commitment_loss, _ = self.codebook(self.data_ref_patch)
+        if self.opt.network_codebook:
+            # enhanced_sr_patch = self.codebook(data_ref_patches)
+            enhanced_sr_patch, codebook_loss, commitment_loss, _ = self.codebook(self.data_ref_patch)
         
         if self.opt.refine_network == 'unetgenerator':
             # original
-            # input = torch.cat((self.data_sr_patch, self.data_ref_patches), dim=1)
+            input = torch.cat((self.data_sr_patch, self.data_ref_patches), dim=1)
             # enhanced
-            # input = torch.cat((enhanced_sr_patch, self.data_ref_patches), dim=1)
+            if self.opt.network_enhancer:
+                input = torch.cat((enhanced_sr_patch, self.data_ref_patch), dim=1)
             # codebook
-            input = torch.cat((self.data_sr_patch, enhanced_sr_patch), dim=1)
+            if self.opt.network_codebook:
+                input = torch.cat((self.data_sr_patch, enhanced_sr_patch), dim=1)
             self.pred = self.netRefine(input)
         else:
             self.pred = self.netRefine(self.data_sr_patch, enhanced_sr_patch)
         self.sr_gt_refine = Visualizee('image', torch.cat([self.data_sr_patch[0], self.data_gt_patch[0], self.pred[0].detach()], dim=2), timestamp=True, name='sr_gt_refine', data_format='CHW', range=(-1, 1), img_format='png')
 
-        # Save losses for later use
-        self.codebook_loss = codebook_loss
-        self.commitment_loss = commitment_loss
+        # Save losses for later uses
+        if self.opt.network_codebook:
+            self.codebook_loss = codebook_loss
+            self.commitment_loss = commitment_loss
 
     def backward_D(self):
         """Calculate GAN loss for the discriminator"""
@@ -198,7 +203,9 @@ class RefineModel(BaseModel):
         if self.opt.refine_with_mse:
             self.loss_mse = self.losses['mse'](self.pred, self.data_gt_patch) * self.opt.lambda_refine_mse
         self.loss_tot = self.loss_vgg + self.loss_mse + self.loss_l1   
-        self.loss_tot += self.codebook_loss + self.opt.commitment_cost * self.commitment_loss
+        
+        if self.opt.network_codebook:
+            self.loss_tot += self.codebook_loss + self.opt.commitment_cost * self.commitment_loss
         
         if self.opt.refine_with_grad:
             self.loss_grad = self.losses['grad'](self.pred, self.data_gt_patch) * self.opt.lambda_refine_grad

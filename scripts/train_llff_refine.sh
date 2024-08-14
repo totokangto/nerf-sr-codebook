@@ -4,7 +4,7 @@ H=378
 accelerator="dp"
 downscale=2
 batch_size=32
-option="patchsamearea8_enhancernetwork"
+option="patchsamearea_enhancer"
 
 data_root='/data/csj000714/data'
 
@@ -17,4 +17,4 @@ python train_refine.py --name llff-refine-$dataset-${H}x${W}-ni${N_importance}-$
     --model refine \
     --lr_policy exp --lr 5e-4 --lr_final 5e-6 \
     --syn_dataroot ./checkpoints/nerf-sr/llff-${dataset}-${H}x${W}-ni64-dp-ds${downscale}/30_val_vis \
-    --refine_with_l1
+    --refine_with_l1 --network_enhancer
