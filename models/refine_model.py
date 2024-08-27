@@ -47,6 +47,7 @@ class RefineModel(BaseModel):
 
         parser.add_argument('--network_codebook', action='store_true')
         parser.add_argument('--inference', action='store_true')
+        parser.add_argument('--pretrained_codebook', action='store_true')
 
         opt, _ = parser.parse_known_args()
         for key, network_name in opt.__dict__.items():
@@ -117,35 +118,30 @@ class RefineModel(BaseModel):
             # for train : HR => codebook => HR 
             cb_hr_patch, codebook_loss_hr, commitment_loss_hr, _ = self.codebook(self.data_ref_patch)
             # for inference : SR => codebook => HR 
-            """
-            # 32,3,64,64 => 32,8,3,64,64 : sr 패치 8개 복사
-            eight_sr_patches = torch.unsqueeze(self.data_sr_patch,dim=1)
-            eight_sr_patches = eight_sr_patches.repeat(1,8,1,1,1)
-            eight_sr_patches = eight_sr_patches.view(eight_sr_patches.shape[0], -1, eight_sr_patches.shape[-2], eight_sr_patches.shape[-1])
-            cb_test_patch, codebook_loss_lr, commitment_loss_lr, _ = self.codebook(eight_sr_patches)
-            """
             cb_test_patch, codebook_loss_lr, commitment_loss_lr, _ = self.codebook(self.data_sr_patch)
-        if self.opt.refine_network == 'unetgenerator':
-            # original
-            input = torch.cat((self.data_sr_patch, self.data_ref_patches), dim=1)
-
-            # codebook
-            if self.opt.network_codebook:
-                if self.opt.inference: # test 
-                    # print(f"cb_test_patch shape : {cb_test_patch.shape}") 12,24,64,64
-                    input = torch.cat((self.data_sr_patch, cb_test_patch), dim=1)
-                else: # train 
-                    input = torch.cat((self.data_sr_patch, cb_hr_patch), dim=1)
-            self.pred = self.netRefine(input)
-            #print(f"---------------input : {input.shape}")
-            torchsummary.summary(self.netRefine,(6,64,64))
-        else:
-            self.pred = self.netRefine(self.data_sr_patch, cb_hr_patch)
         
-        if self.opt.network_codebook:
-            codebook_hr_patch_cpu = codebook_hr_patch[0].detach().cpu().numpy()
-            codebook_hr_patch_cpu = torch.tensor(codebook_hr_patch_cpu).to(self.device)
-            self.sr_gt_refine_codebook = Visualizee('image', torch.cat([self.data_sr_patch[0], self.data_gt_patch[0], self.pred[0].detach(), codebook_hr_patch_cpu], dim=2), timestamp=True, name='sr_gt_refine_codebook', data_format='CHW', range=(-1, 1), img_format='png')
+        if not self.opt.pretrained_codebook: 
+            if self.opt.refine_network == 'unetgenerator':
+                # original
+                input = torch.cat((self.data_sr_patch, self.data_ref_patches), dim=1)
+
+                # codebook
+                if self.opt.network_codebook:
+                    if self.opt.inference: # test 
+                        # print(f"cb_test_patch shape : {cb_test_patch.shape}") 12,24,64,64
+                        input = torch.cat((self.data_sr_patch, cb_test_patch), dim=1)
+                    else: # train 
+                        input = torch.cat((self.data_sr_patch, cb_hr_patch), dim=1)
+                self.pred = self.netRefine(input)
+            else:
+                self.pred = self.netRefine(self.data_sr_patch, cb_hr_patch)
+                # print(f"---------------input : {input.shape}")
+                # torchsummary.summary(self.netRefine,(6,64,64))
+        
+            if self.opt.network_codebook:
+                cb_hr_patch_cpu = cb_hr_patch[0].detach().cpu().numpy()
+                cb_hr_patch_cpu = torch.tensor(cb_hr_patch_cpu).to(self.device)
+                self.sr_gt_refine_codebook = Visualizee('image', torch.cat([self.data_sr_patch[0], self.data_gt_patch[0], self.pred[0].detach(), cb_hr_patch_cpu], dim=2), timestamp=True, name='sr_gt_refine_codebook', data_format='CHW', range=(-1, 1), img_format='png')
 
 
         # Save losses for later uses
@@ -208,25 +204,31 @@ class RefineModel(BaseModel):
     def calculate_losses(self):
         self.loss_mse = 0.0
         self.loss_vgg, self.loss_l1 = 0.0, 0.0
-        if self.opt.refine_with_vgg:
-            self.loss_vgg = self.losses['vgg'](self.pred, self.data_gt_patch) * self.opt.lambda_refine_vgg
-        if self.opt.refine_with_l1:
-            self.loss_l1 = self.losses['l1'](self.pred, self.data_gt_patch) * self.opt.lambda_refine_l1
-        if self.opt.refine_with_mse:
-            self.loss_mse = self.losses['mse'](self.pred, self.data_gt_patch) * self.opt.lambda_refine_mse
-        self.loss_tot = self.loss_vgg + self.loss_mse + self.loss_l1   
         
+        if not self.opt.pretrained_codebook:  
+            if self.opt.refine_with_vgg:
+                self.loss_vgg = self.losses['vgg'](self.pred, self.data_gt_patch) * self.opt.lambda_refine_vgg
+            if self.opt.refine_with_l1:
+                self.loss_l1 = self.losses['l1'](self.pred, self.data_gt_patch) * self.opt.lambda_refine_l1
+            if self.opt.refine_with_mse:
+                self.loss_mse = self.losses['mse'](self.pred, self.data_gt_patch) * self.opt.lambda_refine_mse
+            self.loss_tot = self.loss_vgg + self.loss_mse + self.loss_l1   
+            
+            if self.opt.refine_with_grad:
+                self.loss_grad = self.losses['grad'](self.pred, self.data_gt_patch) * self.opt.lambda_refine_grad
+                self.loss_tot += self.loss_grad
+
+            with torch.no_grad():
+                self.loss_psnr_input = self.losses['psnr'](self.data_sr_patch, self.data_gt_patch)
+                self.loss_psnr_refine = self.losses['psnr'](self.pred, self.data_gt_patch)
+        else : # codebook pretrain할 땐 위의 loss 필요 없음
+            self.loss_tot = 0
+
         if self.opt.network_codebook:
             self.loss_tot += self.codebook_loss_hr + self.opt.commitment_cost * self.commitment_loss_hr
             self.loss_tot += self.codebook_loss_lr + self.opt.commitment_cost * self.commitment_loss_lr
             
-        if self.opt.refine_with_grad:
-            self.loss_grad = self.losses['grad'](self.pred, self.data_gt_patch) * self.opt.lambda_refine_grad
-            self.loss_tot += self.loss_grad
-
-        with torch.no_grad():
-            self.loss_psnr_input = self.losses['psnr'](self.data_sr_patch, self.data_gt_patch)
-            self.loss_psnr_refine = self.losses['psnr'](self.pred, self.data_gt_patch)
+        
 
     # def calculate_vis(self):
         
