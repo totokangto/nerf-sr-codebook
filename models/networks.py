@@ -939,8 +939,10 @@ class MaxPoolingModel(nn.Module, Configurable):
         super(MaxPoolingModel, self).__init__()
         self.opt = opt
         self.E = Model_VNPCAT_Encoder()
+        print("==========encoder clear==============")
         if self.opt.not_use_ref:
             self.D = Model_VNPCAT_Decoder_NoPooling()
+            print("==========decoder clear==============")
         else:
             self.D = Model_VNPCAT_Decoder()
         self.apply(self.initialize_weight)
@@ -954,6 +956,7 @@ class MaxPoolingModel(nn.Module, Configurable):
 
         # reshape from (N, 8, C, H, W) to (N*8, C, H, W)
         candi_shape = list_x_candi.shape
+        print("===================",candi_shape)
         list_x_candi = list_x_candi.view(candi_shape[0]*candi_shape[1], candi_shape[2], candi_shape[3], candi_shape[4])
         list_list_F_candi = self.E(list_x_candi)
         concat_F0 = list_list_F_candi[0].view(candi_shape[0], candi_shape[1], list_list_F_candi[0].shape[-3], list_list_F_candi[0].shape[-2], list_list_F_candi[0].shape[-1])

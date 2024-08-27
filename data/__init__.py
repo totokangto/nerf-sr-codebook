@@ -91,6 +91,7 @@ class CustomDatasetDataLoader():
         """
         self.opt = opt
         self.mode = mode
+        print(f"--------------mode : {mode}")
         if mode == 'train' or self.mode == 'train_crop':
             if opt.accelerator == 'ddp':
                 assert opt.batch_size % opt.n_gpus == 0
@@ -100,7 +101,7 @@ class CustomDatasetDataLoader():
             else:
                 self.batch_size = opt.batch_size
         else:
-            self.batch_size = opt.eval_batch_size
+            self.batch_size = opt.eval_batch_size # 1
         dataset_class = find_dataset_using_name(opt.dataset_mode)
         self.dataset = dataset_class(opt, mode)
         if opt.is_master:

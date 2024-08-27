@@ -429,7 +429,10 @@ class NeRFDownXModel(NeRFModel):
             coarse_pred_ori = torch.cat([coarse_img_ori, coarse_depth_ori], dim=1)
             fine_pred_ori = torch.cat([fine_img_ori, fine_depth_ori], dim=1)
         self.coarse_pred_img_ori, self.fine_pred_img_ori = coarse_pred_ori, fine_pred_ori
-
+        """
+        print(f"==========fine_img_ori shape : {fine_img_ori.shape}") : ([378, 504, 3])
+        print(f"==========fine_pred_ori shape : {fine_pred_ori.shape}") : ([378, 1512, 3])
+        """
         W1, H1 = W // self.opt.downscale, H // self.opt.downscale
         coarse_img = self.out_coarse_comp_rgbs.view(H1, W1, 3).cpu()
         fine_img = self.out_fine_comp_rgbs.view(H1, W1, 3).cpu()
@@ -631,6 +634,7 @@ class NeRFDownXModel(NeRFModel):
             coarse_pred_imgs.append(self.coarse_pred_img)
             fine_pred_imgs.append(self.fine_pred_img)
             coarse_pred_imgs_ori.append(self.coarse_pred_img_ori)
+            #self.fine_pred_img_ori = self.fine_pred_img_ori[]
             fine_pred_imgs_ori.append(self.fine_pred_img_ori)
             coarse_depth_mats.append(
                 Visualizee('matrix', self.coarse_depth_mat, timestamp=False, name=f'{i}-coarse-depth')

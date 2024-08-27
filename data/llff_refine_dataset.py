@@ -30,7 +30,7 @@ class LLFFRefineDataset(BaseDataset):
         parser.add_argument('--with_gt_patch', action='store_true')
         parser.add_argument('--ref_offset', type=int, default=64)
         parser.add_argument('--data_num', type=int, default=500000)
-        parser.add_argument('--test_img_split', type=int, default=4)
+        parser.add_argument('--test_img_split', type=int, default=4) 
         parser.set_defaults(white_bkgd=False, noise_std=1.)
         return parser
     
@@ -164,11 +164,14 @@ class LLFFRefineDataset(BaseDataset):
             self.ref_img = self.gt_imgs[self.ref_idx]
         elif self.split == 'test':
             sr_imgs = []
-            for i in range(2): # hardcoded
+            for i in range(1): # hardcoded 원래 2
+                # 여기서 depth img도 껴있어서 문제
                 img_sr = Image.open(os.path.join(self.opt.syn_dataroot, f'{i}-fine-ori.png')).convert('RGB')
                 img_sr = img_sr.crop((0, 0, self.img_wh[0], self.img_wh[1]))
                 sr_imgs.append(self.transform(img_sr))
             self.sr_imgs = torch.stack(sr_imgs, 0)
+            # self.sr_imgs = self.sr_imgs.squeeze() # 배치 차원 없애봤음
+            # print(f"sr_imgs shape : {self.sr_imgs.shape}")
             self.ref_img = self.transform(Image.open(self.image_paths[0]).convert('RGB').resize(self.img_wh, Image.LANCZOS))
             locs = []
             for i in range(2):
@@ -226,6 +229,7 @@ class LLFFRefineDataset(BaseDataset):
             x_start = np.random.randint(wl, wh - self.opt.patch_len)
             y_start = np.random.randint(hl, hh - self.opt.patch_len)
             # patch on sr image and gt patch
+            # print(f"===========train sr_imgs size : {self.sr_pspc_imgs.shape}") : 200, 3, 378, 504
             sr_patch = self.sr_pspc_imgs[img_idx][:, y_start: y_start+self.opt.patch_len, x_start: x_start+self.opt.patch_len]
             gt_patch = self.gt_pspc_imgs[img_idx][:, y_start: y_start+self.opt.patch_len, x_start: x_start+self.opt.patch_len]
             # gt patch on reference image
@@ -280,6 +284,7 @@ class LLFFRefineDataset(BaseDataset):
                     y_start = min(self.img_wh[1] - self.opt.patch_len, j)
                     # print(x_start, y_start)
                     start_locs.append(torch.Tensor([x_start, y_start]))
+                    print(f"===========test_train sr_imgs size : {self.sr_imgs.shape}")
                     sr_patch.append(self.sr_imgs[img_idx][:, y_start: y_start+self.opt.patch_len, x_start: x_start+self.opt.patch_len])
                     gt_patch.append(self.gt_imgs[img_idx][:, y_start: y_start+self.opt.patch_len, x_start: x_start+self.opt.patch_len])
                     num_valid = 0
@@ -323,6 +328,9 @@ class LLFFRefineDataset(BaseDataset):
                     y_start = min(self.img_wh[1] - self.opt.patch_len, j)
                     # print(x_start, y_start)
                     start_locs.append(torch.Tensor([x_start, y_start]))
+                    # print(f"===========sr_imgs size : {self.sr_imgs.shape}") : 2, 3, 378, 504
+                    print(f"img_idx : {img_idx}")
+                    # 여기 IndexError: index 2 is out of bounds for dimension 0 with size 2 오류
                     sr_patch.append(self.sr_imgs[img_idx][:, y_start: y_start+self.opt.patch_len, x_start: x_start+self.opt.patch_len])
                     num_valid = 0
                     ref_patch = []
