@@ -90,7 +90,7 @@ class BaseModel(ABC, Configurable):
             if opt.load_epoch == 'latest':
                 current_epoch = max([int(os.path.basename(x).split('_')[0]) for x in glob.glob(os.path.join(self.save_dir, '*.pth')) if 'latest' not in x])
             else:
-                current_epoch = int(opt.load_epoch)
+                current_epoch = int(opt.load_epoch) # 3
             self.load_networks(opt.name, opt.load_epoch)
 
         if self.isTrain and opt.fix_layers:

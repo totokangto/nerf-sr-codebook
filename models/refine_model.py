@@ -23,6 +23,8 @@ from .criterions import SSIM
 
 from .network_codebook import VQCodebook, Codebook
 
+import torchsummary
+
 class RefineModel(BaseModel):
     @staticmethod
     def modify_commandline_options(parser):
@@ -135,6 +137,8 @@ class RefineModel(BaseModel):
                 else: # train 
                     input = torch.cat((self.data_sr_patch, cb_hr_patch), dim=1)
             self.pred = self.netRefine(input)
+            #print(f"---------------input : {input.shape}")
+            torchsummary.summary(self.netRefine,(6,64,64))
         else:
             self.pred = self.netRefine(self.data_sr_patch, cb_hr_patch)
         self.sr_gt_refine = Visualizee('image', torch.cat([self.data_sr_patch[0], self.data_gt_patch[0], self.pred[0].detach()], dim=2), timestamp=True, name='sr_gt_refine', data_format='CHW', range=(-1, 1), img_format='png')
