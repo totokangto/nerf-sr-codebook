@@ -37,19 +37,22 @@ def main(rank):
     setup_env(opt)
     # dataset = create_dataset(opt, mode=opt.train_split, shuffle=True)  # create a dataset given opt.dataset_mode and other options
     # dataset_size = len(dataset) if opt.keep_last else len(dataset) - len(dataset) % opt.batch_size    # get the number of images in the dataset.
-    dataset_val = create_dataset(opt, mode=opt.val_epoch_split, shuffle=False)
-    dataset_iterval = create_dataset(opt, mode=opt.val_split, shuffle=False)
-    iter_val = iter(dataset_iterval)
+    #dataset_val = create_dataset(opt, mode=opt.val_epoch_split, shuffle=False)
+    #dataset_iterval = create_dataset(opt, mode=opt.val_split, shuffle=False)
+    #iter_val = iter(dataset_iterval)
     # dataset_test = create_dataset(opt, mode=opt.test_split, shuffle=False)
 
-    dataset = create_dataset(opt, mode='train', shuffle=True)
-    dataset_size = len(dataset) if opt.keep_last else len(dataset) - len(dataset) % opt.batch_size
+    #dataset = create_dataset(opt, mode='train', shuffle=True)
+    #dataset_size = len(dataset) if opt.keep_last else len(dataset) - len(dataset) % opt.batch_size
 
-    if opt.is_master:
-        print('The number of training data = %d' % dataset_size)
+    #if opt.is_master:
+    #    print('The number of training data = %d' % dataset_size)
         
     model = create_model(opt)      # create a model given opt.model and other options
     current_epoch = model.setup(opt)               # regular setup: load and print networks; create schedulers
+    
+    print(f"=============current epoch :{current_epoch}")
+    
     total_iters = current_epoch * len(dataset.dataloader)      # the total number of training iterations
     writer = create_writer(opt)
     for epoch in range(current_epoch + 1, opt.n_epochs + 1):    # outer loop for different epochs; we save the model by <epoch_count>, <epoch_count>+<save_latest_freq>

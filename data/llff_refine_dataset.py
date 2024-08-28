@@ -284,7 +284,6 @@ class LLFFRefineDataset(BaseDataset):
                     y_start = min(self.img_wh[1] - self.opt.patch_len, j)
                     # print(x_start, y_start)
                     start_locs.append(torch.Tensor([x_start, y_start]))
-                    print(f"===========test_train sr_imgs size : {self.sr_imgs.shape}")
                     sr_patch.append(self.sr_imgs[img_idx][:, y_start: y_start+self.opt.patch_len, x_start: x_start+self.opt.patch_len])
                     gt_patch.append(self.gt_imgs[img_idx][:, y_start: y_start+self.opt.patch_len, x_start: x_start+self.opt.patch_len])
                     num_valid = 0

@@ -9,6 +9,6 @@
 #SBATCH -t 2-0
 #SBATCH -o logs/slurm-%A.out
 
-bash scripts/train_llff_refine.sh
+bash scripts/train_llff_cb.sh
 # python warp.py
 exit 0

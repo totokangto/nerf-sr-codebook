@@ -83,15 +83,21 @@ class BaseModel(ABC, Configurable):
         current_epoch = 0
 
         if self.isTrain and opt.init_weights:
+            print(f"============train, init_weights {opt.init_weights}")
             init_weights_name, init_weights_epoch = opt.init_weights.split(':')
             self.load_networks(init_weights_name, init_weights_epoch, opt.init_weights_keys)
         
         if not self.isTrain or opt.continue_train:
+            pretrained_cb_dir = "llff-refine-fern-378x504-ni-dp-ds2-pretrained_cb"
             if opt.load_epoch == 'latest':
-                current_epoch = max([int(os.path.basename(x).split('_')[0]) for x in glob.glob(os.path.join(self.save_dir, '*.pth')) if 'latest' not in x])
+                print(f"---------save dir : {self.save_dir}")
+                print(f"0000000000000000{glob.glob(os.path.join(pretrained_cb_dir, '*.pth'))}")
+                current_epoch = max([int(os.path.basename(x).split('_')[0]) for x in glob.glob(os.path.join(pretrained_cb_dir, '*.pth')) if 'latest' not in x])
+                print(f"88888888current epoch : {current_epoch}")
             else:
                 current_epoch = int(opt.load_epoch)
-            self.load_networks(opt.name, opt.load_epoch)
+
+            self.load_networks(pretrained_cb_dir, opt.load_epoch)
 
         if self.isTrain and opt.fix_layers:
             for name in self.model_names:

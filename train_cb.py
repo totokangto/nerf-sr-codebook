@@ -82,37 +82,12 @@ def main(rank):
                     writer.add_scalars(f"{loss_name}", {'train': loss_val}, global_step=total_iters)
                 print(f"Epoch {epoch} - Iteration {epoch_iter}/{len(dataset.dataloader)} (comp time {t_comp:.3f}, data time {t_data:.3f})")
                 print("Training losses |", ' '.join([f"{k}: {v:.3e}" for k, v in losses.items()]))
-            
-            if opt.is_master and total_iters % opt.val_freq == 0:
-                model.eval()
-                try:
-                    val_data = next(iter_val)
-                except StopIteration:
-                    iter_val = iter(dataset_iterval)
-                    val_data = next(iter_val)
-                with torch.no_grad():
-                    model.set_input(val_data)
-                    model.validate_iter()
-                model.train()
-                val_losses = model.get_current_losses('val_iter')
-                for loss_name, loss_val in val_losses.items():
-                    writer.add_scalars(f"{loss_name}", {'val': loss_val}, global_step=total_iters)
-                print("Validation iter losses |", ' '.join([f"{k}: {v:.3e}" for k, v in val_losses.items()]))
 
         if opt.is_master and epoch % opt.save_epoch_freq == 0:              # cache our model every <save_epoch_freq> epochs
             print('Saving the model at the end of epoch %d, iters %d' % (epoch, total_iters))
             model.save_networks(epoch)
             model.save_networks('latest')
 
-        if opt.is_master and epoch % opt.val_epoch_freq == 0:
-            model.eval()
-            with torch.no_grad():
-                model.validate(dataset_val)
-            val_losses = model.get_current_losses('val')
-            for loss_name, loss_val in val_losses.items():
-                writer.add_scalars(f"{loss_name}", {'val_full': loss_val}, global_step=total_iters)
-            print("Validation losses |", ' '.join([f"{k}: {v:.3e}" for k, v in val_losses.items()]))
-    
         if opt.is_master:
             print('End of epoch %d / %d \t Time Taken: %d sec' % (epoch, opt.n_epochs, time.time() - epoch_start_time))
 

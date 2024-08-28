@@ -82,6 +82,9 @@ class RefineModel(BaseModel):
         self.train_visual_names = ['sr_gt_refine', 'ref_patches']
         if self.opt.refine_as_gan:
             self.train_loss_names = ['G_GAN', 'G_L1', 'D_real', 'D_fake']
+        elif self.opt.pretrained_codebook:
+            self.train_loss_names = ['tot']
+            self.val_iter_loss_names = ['tot']
         else:
             self.train_loss_names = ['mse', 'tot']
             self.val_iter_loss_names = ['mse', 'tot', 'psnr_input', 'psnr_refine']
@@ -256,8 +259,9 @@ class RefineModel(BaseModel):
         if not self.opt.refine_as_gan:
             self.calculate_losses()
         # self.calculate_vis()
-        self.sr_gt_refine.name = 'sr_gt_refine_val'
-        self.ref_patches.name = 'ref_patches_val'
+        if not self.opt.pretrained_codebook :
+            self.sr_gt_refine.name = 'sr_gt_refine_val'
+            self.ref_patches.name = 'ref_patches_val'
 
     def test(self, dataset):
         refined_imgs = []
@@ -266,9 +270,7 @@ class RefineModel(BaseModel):
         sr_psnr = 0.0
         re_psnr = 0.0
         for i, data in enumerate(tqdm(dataset, desc="Testing", total=len(dataset.dataloader))):
-            print('set_input start &&&&&&&&&&&&&&&&&')
             self.set_input(data, need_pack=True)
-            print('set_input end **************')
             self.forward()
             if i % self.opt.test_img_split == 0:
                 refine_img = torch.zeros((3, int(self.data_wh[1]), int(self.data_wh[0])))
