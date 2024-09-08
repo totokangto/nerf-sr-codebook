@@ -37,9 +37,9 @@ def main(rank):
     setup_env(opt)
     # dataset = create_dataset(opt, mode=opt.train_split, shuffle=True)  # create a dataset given opt.dataset_mode and other options
     # dataset_size = len(dataset) if opt.keep_last else len(dataset) - len(dataset) % opt.batch_size    # get the number of images in the dataset.
-    dataset_val = create_dataset(opt, mode=opt.val_epoch_split, shuffle=False)
-    dataset_iterval = create_dataset(opt, mode=opt.val_split, shuffle=False)
-    iter_val = iter(dataset_iterval)
+    # dataset_val = create_dataset(opt, mode=opt.val_epoch_split, shuffle=False)
+    #dataset_iterval = create_dataset(opt, mode=opt.val_split, shuffle=False)
+    #iter_val = iter(dataset_iterval)
     # dataset_test = create_dataset(opt, mode=opt.test_split, shuffle=False)
 
     dataset = create_dataset(opt, mode='train', shuffle=True)
@@ -82,6 +82,9 @@ def main(rank):
                     writer.add_scalars(f"{loss_name}", {'train': loss_val}, global_step=total_iters)
                 print(f"Epoch {epoch} - Iteration {epoch_iter}/{len(dataset.dataloader)} (comp time {t_comp:.3f}, data time {t_data:.3f})")
                 print("Training losses |", ' '.join([f"{k}: {v:.3e}" for k, v in losses.items()]))
+                
+            if opt.is_master and total_iters % opt.vis_freq == 0:
+                save_visuals(os.path.join(model.save_dir, f"vis"), model.get_current_visuals('train'), total_iters)
 
         if opt.is_master and epoch % opt.save_epoch_freq == 0:              # cache our model every <save_epoch_freq> epochs
             print('Saving the model at the end of epoch %d, iters %d' % (epoch, total_iters))

@@ -41,8 +41,8 @@ class RefineModel(BaseModel):
         # parser.add_argument('--patch_len', type=int, default=32)
         # parser.add_argument('--lambda_L1', type=float, default=100.0, help='weight for L1 loss')
 
-        parser.add_argument('--code_size', type=int, default=256) # default : 256
-        parser.add_argument('--num_codes', type=int, default=1024) # default : 512
+        parser.add_argument('--embedding_dim', type=int, default=64) # default : 256
+        parser.add_argument('--num_embeddings', type=int, default=512) # default : 512
         parser.add_argument('--commitment_cost', type=float, default=0.25)
 
         parser.add_argument('--network_codebook', action='store_true')
@@ -64,8 +64,8 @@ class RefineModel(BaseModel):
         self.netRefine = init_net(find_network_using_name(opt.refine_network)(opt), opt)
         
         # Codebook 초기화
-        # self.codebook = Codebook(opt.code_size, opt.num_codes).to(self.device)
-        self.codebook = VQCodebook(opt.code_size, opt.num_codes).to(self.device)
+        # self.codebook = Codebook(opt.embedding_dim, opt.num_embeddings).to(self.device)
+        self.codebook = VQCodebook(opt.embedding_dim, opt.num_embeddings).to(self.device)
         
         self.models = {
             'R': self.netRefine,
@@ -79,7 +79,13 @@ class RefineModel(BaseModel):
             'grad': GradientLoss(opt),
             'ssim': SSIM(data_range=(-1,1))
         }
-        self.train_visual_names = ['sr_gt_refine', 'ref_patches']
+        if not self.opt.pretrained_codebook:
+            self.train_visual_names = ['sr_gt_refine', 'ref_patches']
+        else :
+            self.train_visual_names = []
+        
+        if self.opt.network_codebook:
+            self.train_visual_names.append('sr_gt_refine_codebook')
         if self.opt.refine_as_gan:
             self.train_loss_names = ['G_GAN', 'G_L1', 'D_real', 'D_fake']
         elif self.opt.pretrained_codebook:
@@ -112,6 +118,7 @@ class RefineModel(BaseModel):
                 self.optimizers.append(self.optimizer_D)
     
     def forward(self):
+        if self.device=="cuda": torch.cuda.empty_cache()
         # num_ref_patches가 8일 때 그 중 하나의 패치만 선택
         selected_patch_idx = 0  # 0부터 7까지 선택 가능, 여기서는 첫 번째 패치를 선택
         self.data_ref_patch = self.data_ref_patches[:, selected_patch_idx * 3:(selected_patch_idx + 1) * 3, :, :]
@@ -120,6 +127,7 @@ class RefineModel(BaseModel):
         if self.opt.network_codebook:
             # for train : HR => codebook => HR 
             cb_hr_patch, codebook_loss_hr, commitment_loss_hr, _ = self.codebook(self.data_ref_patch)
+            self.cb_hr_patch = cb_hr_patch
             # for inference : SR => codebook => HR 
             cb_test_patch, codebook_loss_lr, commitment_loss_lr, _ = self.codebook(self.data_sr_patch)
         
@@ -138,14 +146,19 @@ class RefineModel(BaseModel):
                 self.pred = self.netRefine(input)
             else:
                 self.pred = self.netRefine(self.data_sr_patch, cb_hr_patch)
-                # print(f"---------------input : {input.shape}")
-                # torchsummary.summary(self.netRefine,(6,64,64))
-        
+
+            self.sr_gt_refine = Visualizee('image', torch.cat([self.data_sr_patch[0], \
+                            self.data_gt_patch[0], self.pred[0].detach()], dim=2), \
+                            timestamp=True, name='sr_gt_refine', data_format='CHW', range=(-1, 1), img_format='png')
             if self.opt.network_codebook:
                 cb_hr_patch_cpu = cb_hr_patch[0].detach().cpu().numpy()
                 cb_hr_patch_cpu = torch.tensor(cb_hr_patch_cpu).to(self.device)
-                self.sr_gt_refine_codebook = Visualizee('image', torch.cat([self.data_sr_patch[0], self.data_gt_patch[0], self.pred[0].detach(), cb_hr_patch_cpu], dim=2), timestamp=True, name='sr_gt_refine_codebook', data_format='CHW', range=(-1, 1), img_format='png')
-
+                self.sr_gt_refine_codebook = Visualizee('image', torch.cat([self.data_sr_patch[0], \
+                                self.data_gt_patch[0], self.pred[0].detach(), cb_hr_patch_cpu], dim=2),\
+                                timestamp=True, name='sr_gt_refine_codebook', data_format='CHW', range=(-1, 1), img_format='png')
+        else:
+            self.sr_gt_refine_codebook = Visualizee('image', torch.cat([ self.data_ref_patch[0],cb_hr_patch[0]], dim=2),\
+                                timestamp=True, name='sr_gt_refine_codebook', data_format='CHW', range=(-1, 1), img_format='png')
 
         # Save losses for later uses
         if self.opt.network_codebook:
@@ -230,6 +243,7 @@ class RefineModel(BaseModel):
         if self.opt.network_codebook:
             self.loss_tot += self.codebook_loss_hr + self.opt.commitment_cost * self.commitment_loss_hr
             self.loss_tot += self.codebook_loss_lr + self.opt.commitment_cost * self.commitment_loss_lr
+            self.loss_tot += self.losses['mse'](self.cb_hr_patch, self.data_ref_patch) * self.opt.lambda_refine_mse
             
         
 

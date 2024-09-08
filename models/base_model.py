@@ -37,7 +37,7 @@ class BaseModel(ABC, Configurable):
         self.isTrain, self.isTest, self.isInfer = opt.isTrain, opt.isTest, opt.isInfer
         self.device = opt.device  # get device name: CPU or GPU
         self.save_dir = os.path.join(opt.checkpoints_dir, opt.name)  # save all the checkpoints to save_dir
-
+        
         # losses
         self.train_loss_names = []
         self.val_loss_names = []
@@ -83,21 +83,16 @@ class BaseModel(ABC, Configurable):
         current_epoch = 0
 
         if self.isTrain and opt.init_weights:
-            print(f"============train, init_weights {opt.init_weights}")
             init_weights_name, init_weights_epoch = opt.init_weights.split(':')
             self.load_networks(init_weights_name, init_weights_epoch, opt.init_weights_keys)
         
         if not self.isTrain or opt.continue_train:
-            pretrained_cb_dir = "llff-refine-fern-378x504-ni-dp-ds2-pretrained_cb"
             if opt.load_epoch == 'latest':
-                print(f"---------save dir : {self.save_dir}")
-                print(f"0000000000000000{glob.glob(os.path.join(pretrained_cb_dir, '*.pth'))}")
-                current_epoch = max([int(os.path.basename(x).split('_')[0]) for x in glob.glob(os.path.join(pretrained_cb_dir, '*.pth')) if 'latest' not in x])
-                print(f"88888888current epoch : {current_epoch}")
+                current_epoch = max([int(os.path.basename(x).split('_')[0]) for x in glob.glob(os.path.join(self.opt.checkpoints_dir,opt.pretrained_dir, '*.pth')) if 'latest' not in x])
             else:
                 current_epoch = int(opt.load_epoch)
 
-            self.load_networks(pretrained_cb_dir, opt.load_epoch)
+            self.load_networks(opt.pretrained_dir, opt.load_epoch)
 
         if self.isTrain and opt.fix_layers:
             for name in self.model_names:
@@ -107,9 +102,9 @@ class BaseModel(ABC, Configurable):
                 for param_name, params in net.named_parameters():
                     if re.match(opt.fix_layers, param_name):
                         params.requires_grad = False
-
+        current_epoch = 0
         if self.isTrain:
-            self.schedulers = [networks.get_scheduler(optimizer, opt, last_epoch=current_epoch - 1) for optimizer in self.optimizers]
+            self.schedulers = [networks.get_scheduler(optimizer, opt, last_epoch=current_epoch -1) for optimizer in self.optimizers]
 
         if opt.is_master:
             self.print_networks(opt.verbose)
@@ -223,7 +218,7 @@ class BaseModel(ABC, Configurable):
                 else:
                     state_dict = {k: v for k, v in torch.load(load_path, map_location=self.device).items() if re.match(keys, k)}
                     net.load_state_dict(state_dict, strict=False)
-
+        print('------------load finish------')
     def print_networks(self, verbose):
         """Print the total number of parameters in the network and (if verbose) network architecture
 

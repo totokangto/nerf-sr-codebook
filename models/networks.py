@@ -99,6 +99,7 @@ def get_scheduler(optimizer, opt, last_epoch=-1):
     For other schedulers (step, plateau, and cosine), we use the default PyTorch schedulers.
     See https://pytorch.org/docs/stable/optim.html for more details.
     """
+ 
     if opt.lr_policy == 'linear':
         def lambda_rule(epoch):
             t = max(0, epoch + 1 - opt.n_epochs + opt.n_epochs_decay) / float(opt.n_epochs_decay + 1)
@@ -359,8 +360,8 @@ class UnetGenerator(nn.Module, Configurable):
         super(UnetGenerator, self).__init__()
 
         self.opt = opt
-        output_nc = opt.output_nc
-        input_nc = opt.input_nc
+        output_nc = opt.output_nc # 3
+        input_nc = opt.input_nc # 6
         ngf = opt.ngf
         norm_layer = get_norm_layer(self.opt.norm)
 

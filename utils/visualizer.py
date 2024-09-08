@@ -22,7 +22,8 @@ class Visualizee():
         self.type = type
         self.data = data
         if isinstance(self.data, torch.Tensor):
-            self.data = self.data.cpu().numpy()
+            #self.data = self.data.cpu().numpy()
+            self.data = self.data.cpu().detach().numpy()
         elif isinstance(self.data, list):
             self.data = [data.cpu().numpy() if isinstance(data, torch.Tensor) else data for data in self.data]
         self.tag = tag

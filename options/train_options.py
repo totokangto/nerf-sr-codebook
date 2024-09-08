@@ -19,6 +19,9 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--val_freq', type=int, default=10)
         parser.add_argument('--val_epoch_freq', type=int, default=1)
 
+        parser.add_argument('--pretrained_dir', type=str, default=None, help='name of the pretrained.')
+
+
         # network saving and loading parameters
         parser.add_argument('--save_epoch_freq', type=int, default=1, help='frequency of saving checkpoints at the end of epochs')
         parser.add_argument('--continue_train', action='store_true', help='continue training: load the latest model')
