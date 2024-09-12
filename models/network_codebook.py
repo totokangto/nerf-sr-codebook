@@ -26,8 +26,7 @@ class VQCodebook(nn.Module):
         self.embedding_dim = embedding_dim
 
         self.embedding = nn.Embedding(num_embeddings, embedding_dim)
-        # self.embedding.weight.data.uniform_(-1 / num_embeddings, 1 / num_embeddings)
-        self.embedding.weight.requires_grad = False  # 임베딩 업데이트 비활성화
+        #self.embedding.weight.data.uniform_(-1 / num_embeddings, 1 / num_embeddings)
 
         self.encoder = Encoder(3,128,2,32)
         self.pre_quantization_conv = nn.Conv2d(
@@ -56,34 +55,40 @@ class VQCodebook(nn.Module):
 
     def forward(self, patch, idx=None):
         z = self.encoder(patch) # 32, 128, 16, 16
-        z = self.pre_quantization_conv(z) # 32, 256, 16, 16
-        z = z.permute(0, 2, 3, 1).contiguous() # 32, 16, 16, 256
+        z = self.pre_quantization_conv(z) # 32, 64, 16, 16
+        z = z.permute(0, 2, 3, 1).contiguous() # 32, 16, 16, 64
+        
         if idx is not None:
             print(f"Initializing codebook at index {idx}")
             for i in range(32): # batch_size: 32
                 self.initialize_embedding_with_vector(self.embedding, z[i], idx * 32 + i)
+        
 
         # Flatten input using reshape instead of view
-        z_flattened = z.reshape(-1, self.embedding_dim) # 8192, 256
-        # Calculate distances between z and embedding
-        dists = torch.cdist(z_flattened, self.embedding.weight)
-        # Get the closest codebook entry
-        encoding_indices = torch.argmin(dists, dim=1).unsqueeze(1)
+        z_flattened = z.reshape(-1, self.embedding_dim) # 8192, 64
 
+        # Calculate distances between z and embedding
+        dists = torch.sum(z_flattened ** 2, dim=1, keepdim=True) + \
+            torch.sum(self.embedding.weight**2, dim=1) - 2 * \
+            torch.matmul(z_flattened, self.embedding.weight.t())
+
+        # Get the closest codebook entry
         min_encoding_indices = torch.argmin(dists, dim=1).unsqueeze(1)
         min_encodings = torch.zeros(
             min_encoding_indices.shape[0], self.num_embeddings).to(device)
         min_encodings.scatter_(1, min_encoding_indices, 1)
 
         # Quantize the input using the closest codebook entry
-        #z_q = self.embedding(encoding_indices).view_as(z)
         z_q = torch.matmul(min_encodings, self.embedding.weight).view(z.shape)
 
         # Calculate VQ Losses
         commitment_loss = torch.mean((z_q.detach() - z) ** 2)
         codebook_loss = torch.mean((z_q - z.detach()) ** 2)
 
-        z_q = z_q.permute(0, 3, 1, 2).contiguous()
+        # preserve gradients
+        z_q = z + (z_q - z).detach()
+
+        z_q = z_q.permute(0, 3, 1, 2).contiguous() # 32, 64, 16, 16
         reconstructed_patch = self.decoder(z_q)
         return reconstructed_patch, codebook_loss, commitment_loss, min_encoding_indices #encoding_indices
     """

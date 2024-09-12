@@ -41,7 +41,7 @@ class RefineModel(BaseModel):
         # parser.add_argument('--patch_len', type=int, default=32)
         # parser.add_argument('--lambda_L1', type=float, default=100.0, help='weight for L1 loss')
 
-        parser.add_argument('--embedding_dim', type=int, default=64) # default : 256
+        parser.add_argument('--embedding_dim', type=int, default=64) # default : 64
         parser.add_argument('--num_embeddings', type=int, default=512) # default : 512
         parser.add_argument('--commitment_cost', type=float, default=0.25)
 
@@ -118,7 +118,6 @@ class RefineModel(BaseModel):
                 self.optimizers.append(self.optimizer_D)
     
     def forward(self):
-        if self.device=="cuda": torch.cuda.empty_cache()
         # num_ref_patches가 8일 때 그 중 하나의 패치만 선택
         selected_patch_idx = 0  # 0부터 7까지 선택 가능, 여기서는 첫 번째 패치를 선택
         self.data_ref_patch = self.data_ref_patches[:, selected_patch_idx * 3:(selected_patch_idx + 1) * 3, :, :]

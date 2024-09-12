@@ -116,7 +116,6 @@ class LLFFRefineDataset(BaseDataset):
             image_path = self.image_paths[self.ref_idx]
             img = Image.open(image_path).convert('RGB')
             img = img.resize(self.img_wh, Image.LANCZOS)
-
             img_sr = Image.open(os.path.join(self.opt.syn_dataroot, f'{self.ref_idx}-fine-ori.png')).convert('RGB')
             img_sr = img_sr.crop((0, 0, self.img_wh[0], self.img_wh[1]))
             assert img.size == img_sr.size, 'input size must be equal to synthesized image size'
