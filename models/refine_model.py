@@ -125,10 +125,10 @@ class RefineModel(BaseModel):
         # VQ-VAE Codebook을 이용하여 data_ref_patches를 생성 또는 보강
         if self.opt.network_codebook:
             # for train : HR => codebook => HR 
-            cb_hr_patch, loss_hr, x1,x2,x3 = self.codebook(self.data_ref_patch)
+            cb_hr_patch, loss_hr, x1,x2,x3,_ = self.codebook(self.data_ref_patch)
             self.cb_hr_patch = cb_hr_patch
             # for inference : SR => codebook => HR 
-            cb_test_patch, loss_lr, _,_,_ = self.codebook(self.data_sr_patch)
+            _, loss_lr, _,_,_,z_q = self.codebook(self.data_sr_patch)
         
         if not self.opt.pretrained_codebook: 
             if self.opt.refine_network == 'unetgenerator':
@@ -143,7 +143,7 @@ class RefineModel(BaseModel):
                     else: # train 
                         input = torch.cat((self.data_sr_patch, cb_hr_patch), dim=1)
                 '''
-                self.pred = self.netRefine(self.data_sr_patch,x1,x2,x3)
+                self.pred = self.netRefine(self.data_sr_patch,z_q)
             
             else:
                 self.pred = self.netRefine(self.data_sr_patch, cb_hr_patch)
@@ -166,6 +166,7 @@ class RefineModel(BaseModel):
         if self.opt.network_codebook:
             self.loss_hr = loss_hr
             self.loss_lr = loss_lr
+
     def backward_D(self):
         """Calculate GAN loss for the discriminator"""
         # Fake; stop backprop to the generator by detaching fake_B

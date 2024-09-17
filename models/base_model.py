@@ -91,7 +91,6 @@ class BaseModel(ABC, Configurable):
                 current_epoch = max([int(os.path.basename(x).split('_')[0]) for x in glob.glob(os.path.join(self.opt.checkpoints_dir,opt.pretrained_dir, '*.pth')) if 'latest' not in x])
             else:
                 current_epoch = int(opt.load_epoch)
-            print(f'=============current_epoch : {current_epoch}')
             self.load_networks(opt.pretrained_dir, opt.load_epoch)
 
         if self.isTrain and opt.fix_layers:
@@ -217,7 +216,7 @@ class BaseModel(ABC, Configurable):
                 else:
                     state_dict = {k: v for k, v in torch.load(load_path, map_location=self.device).items() if re.match(keys, k)}
                     net.load_state_dict(state_dict, strict=False)
-        print('------------load finish------')
+
     def print_networks(self, verbose):
         """Print the total number of parameters in the network and (if verbose) network architecture
 

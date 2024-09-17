@@ -67,7 +67,6 @@ def main(rank):
         if opt.accelerator == 'ddp':
             dataset.dataloader.sampler.set_epoch(epoch)
         """
-
         for i, data in enumerate(dataset):  # inner loop within one epoch
             iter_start_time = time.time()  # timer for computation per iteration
             total_iters += 1

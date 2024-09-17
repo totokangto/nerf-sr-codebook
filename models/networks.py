@@ -477,37 +477,35 @@ class UnetGenerator(nn.Module, Configurable):
 
         self.up_1 =nn.Sequential(
             nn.ConvTranspose2d(
-                embedding_dim, h_dim, kernel_size=1, stride=1),
+                embedding_dim*2, h_dim, kernel_size=1, stride=1),
                 ResidualStack(h_dim, h_dim, res_h_dim, n_res_layers)
         )
  
         self.up_2 = nn.Sequential(
-            nn.ConvTranspose2d(h_dim*2, h_dim ,
+            nn.ConvTranspose2d(h_dim, h_dim ,
                                kernel_size=kernel-1, stride=stride-1, padding=1)
         )
 
         self.up_3 = nn.Sequential(
             nn.ReLU(),
-            nn.ConvTranspose2d(h_dim*2, h_dim//2, kernel_size=kernel,
+            nn.ConvTranspose2d(h_dim, h_dim//2, kernel_size=kernel,
                                stride=stride, padding=1)
         )
 
         self.up_4 = nn.Sequential(
             nn.ReLU(),
-            nn.ConvTranspose2d(h_dim, 3, kernel_size=kernel,
+            nn.ConvTranspose2d(h_dim//2, 3, kernel_size=kernel,
                                stride=stride, padding=1)
         )
         
         
-    def forward(self, x,cb_x1,cb_x2,cb_x3):
+    def forward(self, x,z_q):
         z = self.encoder(x)
         z = self.pre_quantization_conv(z)
-        x1 = self.up_1(z) # 128,16,16
-        x1 = torch.cat([x1, cb_x1], dim=1) # 256,16,16
+        x = torch.cat([z, z_q], dim=1) # 128,16,16
+        x1 = self.up_1(x) 
         x2 = self.up_2(x1)
-        x2 = torch.cat([x2, cb_x2], dim=1)
         x3 = self.up_3(x2)
-        x3 = torch.cat([x3, cb_x3], dim=1)
         x4 = self.up_4(x3)
         return x4
 

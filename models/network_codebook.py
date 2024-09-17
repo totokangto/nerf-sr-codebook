@@ -71,7 +71,7 @@ class VQCodebook(nn.Module):
 
         z_q = z_q.permute(0, 3, 1, 2).contiguous() # 32, 64, 16, 16
         x1,x2,x3,reconstructed_patch = self.decoder(z_q)
-        return reconstructed_patch, loss, x1,x2,x3
+        return reconstructed_patch, loss, x1,x2,x3,z_q
 
     
     def initialize_embedding_with_vectors(self, embedding_layer, initial_vectors):
