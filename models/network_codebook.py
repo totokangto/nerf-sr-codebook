@@ -33,26 +33,6 @@ class VQCodebook(nn.Module):
             128, embedding_dim, kernel_size=1, stride=1)
         self.decoder = Decoder(embedding_dim,128,2,32)
 
-        """
-        self.encoder = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=32, kernel_size=4, stride=2, padding=1), # 32, 32, 32
-            nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1) # 64,16,16
-        )
-        
-        self.encoder_conv1 = nn.Conv2d(in_channels=3, out_channels=32, kernel_size=4, stride=2, padding=1) # 32, 32, 32
-        self.encoder_conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1) # 64,16,16
-        self.decoder_conv1 = nn.ConvTranspose2d(64, out_channels=32, kernel_size=4, stride=2, padding=1)
-        self.decoder_conv2 = nn.ConvTranspose2d(32, 3, kernel_size=4, stride=2, padding=1)
-
-        
-        self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(64, out_channels=32, kernel_size=4, stride=2, padding=1),
-            nn.ReLU(),
-            nn.ConvTranspose2d(32, 3, kernel_size=4, stride=2, padding=1),
-            nn.Tanh()  # [-1, 1]로 정규화된 이미지를 얻기 위해 사용 (선택 사항)
-        )"""
-
     def forward(self, patch, idx=None):
         z = self.encoder(patch) # 32, 128, 16, 16
         z = self.pre_quantization_conv(z) # 32, 64, 16, 16
@@ -82,29 +62,18 @@ class VQCodebook(nn.Module):
         z_q = torch.matmul(min_encodings, self.embedding.weight).view(z.shape)
 
         # Calculate VQ Losses
-        commitment_loss = torch.mean((z_q.detach() - z) ** 2)
-        codebook_loss = torch.mean((z_q - z.detach()) ** 2)
+        codebook_loss = torch.mean((z_q.detach() - z) ** 2)
+        commitment_loss = torch.mean((z_q - z.detach()) ** 2)
+        loss = codebook_loss + 0.25*commitment_loss
 
         # preserve gradients
         z_q = z + (z_q - z).detach()
 
         z_q = z_q.permute(0, 3, 1, 2).contiguous() # 32, 64, 16, 16
-        reconstructed_patch = self.decoder(z_q)
-        return reconstructed_patch, codebook_loss, commitment_loss, min_encoding_indices #encoding_indices
-    """
-    def encode_patch(self, patch):
-        output = F.relu(self.encoder_conv1(patch))
-        output = self.encoder_conv2(output)
-        return output  
-    def decode_vector(self, vector):
-        #vector = vector.unsqueeze(2).unsqueeze(3)
-        #vector = nn.functional.interpolate(vector, scale_factor=(64, 64), mode='bilinear', align_corners=False)  # [batch_size, embedding_dim, 64, 64]
-        output = F.relu(self.decoder_conv1(vector))
-        output = self.decoder_conv2(output)       
-        
-        return output  # [batch_size, patch_size, patch_size]
-        """
+        x1,x2,x3,reconstructed_patch = self.decoder(z_q)
+        return reconstructed_patch, loss, x1,x2,x3
 
+    
     def initialize_embedding_with_vectors(self, embedding_layer, initial_vectors):
         # Check if the shape matches
         if embedding_layer.weight.shape != initial_vectors.shape:

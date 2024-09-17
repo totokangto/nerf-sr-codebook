@@ -35,12 +35,6 @@ import argparse
 def main(rank):
     opt = TrainOptions().parse(rank)   # get training options
     setup_env(opt)
-    # dataset = create_dataset(opt, mode=opt.train_split, shuffle=True)  # create a dataset given opt.dataset_mode and other options
-    # dataset_size = len(dataset) if opt.keep_last else len(dataset) - len(dataset) % opt.batch_size    # get the number of images in the dataset.
-    # dataset_val = create_dataset(opt, mode=opt.val_epoch_split, shuffle=False)
-    #dataset_iterval = create_dataset(opt, mode=opt.val_split, shuffle=False)
-    #iter_val = iter(dataset_iterval)
-    # dataset_test = create_dataset(opt, mode=opt.test_split, shuffle=False)
 
     dataset = create_dataset(opt, mode='train', shuffle=True)
     dataset_size = len(dataset) if opt.keep_last else len(dataset) - len(dataset) % opt.batch_size

@@ -5,7 +5,7 @@ accelerator="dp"
 downscale=2
 batch_size=32
 # add option
-option="pt_cb_128_100_no_init"
+option="pt_cb_feature_100"
 
 python train_cb.py --name llff-refine-$dataset-${H}x${W}-ni${N_importance}-${accelerator}-ds${downscale}-${option} --accelerator $accelerator \
     --dataset_mode llff_refine --dataset_root /local_datasets/nerf_llff_data/${dataset} \

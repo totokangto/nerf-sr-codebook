@@ -125,24 +125,26 @@ class RefineModel(BaseModel):
         # VQ-VAE Codebook을 이용하여 data_ref_patches를 생성 또는 보강
         if self.opt.network_codebook:
             # for train : HR => codebook => HR 
-            cb_hr_patch, codebook_loss_hr, commitment_loss_hr, _ = self.codebook(self.data_ref_patch)
+            cb_hr_patch, loss_hr, x1,x2,x3 = self.codebook(self.data_ref_patch)
             self.cb_hr_patch = cb_hr_patch
             # for inference : SR => codebook => HR 
-            cb_test_patch, codebook_loss_lr, commitment_loss_lr, _ = self.codebook(self.data_sr_patch)
+            cb_test_patch, loss_lr, _,_,_ = self.codebook(self.data_sr_patch)
         
         if not self.opt.pretrained_codebook: 
             if self.opt.refine_network == 'unetgenerator':
+                '''
                 # original
                 input = torch.cat((self.data_sr_patch, self.data_ref_patches), dim=1)
-
+                
                 # codebook
                 if self.opt.network_codebook:
                     if self.opt.inference: # test 
-                        # print(f"cb_test_patch shape : {cb_test_patch.shape}") 12,24,64,64
                         input = torch.cat((self.data_sr_patch, cb_test_patch), dim=1)
                     else: # train 
                         input = torch.cat((self.data_sr_patch, cb_hr_patch), dim=1)
-                self.pred = self.netRefine(input)
+                '''
+                self.pred = self.netRefine(self.data_sr_patch,x1,x2,x3)
+            
             else:
                 self.pred = self.netRefine(self.data_sr_patch, cb_hr_patch)
 
@@ -155,17 +157,15 @@ class RefineModel(BaseModel):
                 self.sr_gt_refine_codebook = Visualizee('image', torch.cat([self.data_sr_patch[0], \
                                 self.data_gt_patch[0], self.pred[0].detach(), cb_hr_patch_cpu], dim=2),\
                                 timestamp=True, name='sr_gt_refine_codebook', data_format='CHW', range=(-1, 1), img_format='png')
+        
         else:
             self.sr_gt_refine_codebook = Visualizee('image', torch.cat([ self.data_ref_patch[0],cb_hr_patch[0]], dim=2),\
                                 timestamp=True, name='sr_gt_refine_codebook', data_format='CHW', range=(-1, 1), img_format='png')
 
         # Save losses for later uses
         if self.opt.network_codebook:
-            self.codebook_loss_hr = codebook_loss_hr 
-            self.commitment_loss_hr = commitment_loss_hr
-            self.codebook_loss_lr = codebook_loss_lr
-            self.commitment_loss_lr = commitment_loss_lr
-
+            self.loss_hr = loss_hr
+            self.loss_lr = loss_lr
     def backward_D(self):
         """Calculate GAN loss for the discriminator"""
         # Fake; stop backprop to the generator by detaching fake_B
@@ -240,8 +240,7 @@ class RefineModel(BaseModel):
             self.loss_tot = 0
 
         if self.opt.network_codebook:
-            self.loss_tot += self.codebook_loss_hr + self.opt.commitment_cost * self.commitment_loss_hr
-            self.loss_tot += self.codebook_loss_lr + self.opt.commitment_cost * self.commitment_loss_lr
+            self.loss_tot += self.loss_hr + self.loss_lr
             self.loss_tot += self.losses['mse'](self.cb_hr_patch, self.data_ref_patch) * self.opt.lambda_refine_mse
             
         

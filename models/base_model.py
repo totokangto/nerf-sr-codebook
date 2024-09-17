@@ -91,7 +91,7 @@ class BaseModel(ABC, Configurable):
                 current_epoch = max([int(os.path.basename(x).split('_')[0]) for x in glob.glob(os.path.join(self.opt.checkpoints_dir,opt.pretrained_dir, '*.pth')) if 'latest' not in x])
             else:
                 current_epoch = int(opt.load_epoch)
-
+            print(f'=============current_epoch : {current_epoch}')
             self.load_networks(opt.pretrained_dir, opt.load_epoch)
 
         if self.isTrain and opt.fix_layers:
@@ -102,7 +102,6 @@ class BaseModel(ABC, Configurable):
                 for param_name, params in net.named_parameters():
                     if re.match(opt.fix_layers, param_name):
                         params.requires_grad = False
-        current_epoch = 0
         if self.isTrain:
             self.schedulers = [networks.get_scheduler(optimizer, opt, last_epoch=current_epoch -1) for optimizer in self.optimizers]
 
@@ -214,7 +213,7 @@ class BaseModel(ABC, Configurable):
                 # GitHub source), you can remove str() on self.device
                 if keys is None:
                     state_dict = torch.load(load_path, map_location=self.device)
-                    net.load_state_dict(state_dict)
+                    net.load_state_dict(state_dict,strict=False)
                 else:
                     state_dict = {k: v for k, v in torch.load(load_path, map_location=self.device).items() if re.match(keys, k)}
                     net.load_state_dict(state_dict, strict=False)
