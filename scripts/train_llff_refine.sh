@@ -4,8 +4,13 @@ H=378
 accelerator="dp"
 downscale=2
 batch_size=32
+<<<<<<< HEAD
 # add option
 option="cb_size_256_num_1024"
+=======
+option="cb_feature_64_3"
+pretrained='pt_cb_feature_50_2'
+>>>>>>> pretrained_cb
 
 python train_refine.py --name llff-refine-$dataset-${H}x${W}-ni${N_importance}-${accelerator}-ds${downscale}-${option} --accelerator $accelerator \
     --dataset_mode llff_refine --dataset_root /local_datasets/nerf_llff_data/${dataset} \
@@ -16,4 +21,9 @@ python train_refine.py --name llff-refine-$dataset-${H}x${W}-ni${N_importance}-$
     --model refine \
     --lr_policy exp --lr 5e-4 --lr_final 5e-6 \
     --syn_dataroot ./checkpoints/nerf-sr/llff-${dataset}-${H}x${W}-ni64-dp-ds${downscale}/30_val_vis \
+<<<<<<< HEAD
     --refine_with_l1 --network_codebook
+=======
+    --refine_with_l1 --network_codebook --continue_train \
+    --pretrained_dir llff-refine-$dataset-${H}x${W}-ni${N_importance}-${accelerator}-ds${downscale}-${pretrained}
+>>>>>>> pretrained_cb

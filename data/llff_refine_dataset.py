@@ -138,14 +138,11 @@ class LLFFRefineDataset(BaseDataset):
                 #     T.ColorJitter.get_params(brightness=(0.9, 1.1), contrast=(0.9, 1.1), saturation=(0.9, 1.1), hue=(-0.05, 0.05))
                 # gt_pspc_img = self.jitterImage(gt_pspc_img, fn_idx, b, c, s, h)
                 # sr_pspc_img = self.jitterImage(sr_pspc_img, fn_idx, b, c, s, h)
-                gt_pspc_img.save(f'pspc/{i}-pspc_img_gt.png')
-                sr_pspc_img.save(f'pspc/{i}-pspc_img_sr.png')
                 # self.sr_gt_pspc_img = Visualizee('image', torch.cat([sr_pspc_img, gt_pspc_img], dim=2), timestamp=True, name='sr_gt_pspc_img', data_format='CHW', range=(-1, 1), img_format='png')
 
                 gt_pspc_imgs.append(self.transform(gt_pspc_img))
                 sr_pspc_imgs.append(self.transform(sr_pspc_img))
             self.gt_pspc_imgs = torch.stack(gt_pspc_imgs, 0)
-            self.sr_pspc_imgs = torch.stack(sr_pspc_imgs, 0) # (aug_num, h, w, 3)
             self.gt_img = self.transform(img)
             self.sr_img = self.transform(img_sr)
             self.bboxs = torch.stack(bboxs, 0)
@@ -284,7 +281,6 @@ class LLFFRefineDataset(BaseDataset):
                     y_start = min(self.img_wh[1] - self.opt.patch_len, j)
                     # print(x_start, y_start)
                     start_locs.append(torch.Tensor([x_start, y_start]))
-                    print(f"===========test_train sr_imgs size : {self.sr_imgs.shape}")
                     sr_patch.append(self.sr_imgs[img_idx][:, y_start: y_start+self.opt.patch_len, x_start: x_start+self.opt.patch_len])
                     gt_patch.append(self.gt_imgs[img_idx][:, y_start: y_start+self.opt.patch_len, x_start: x_start+self.opt.patch_len])
                     num_valid = 0
@@ -329,7 +325,6 @@ class LLFFRefineDataset(BaseDataset):
                     # print(x_start, y_start)
                     start_locs.append(torch.Tensor([x_start, y_start]))
                     # print(f"===========sr_imgs size : {self.sr_imgs.shape}") : 2, 3, 378, 504
-                    print(f"img_idx : {img_idx}")
                     # 여기 IndexError: index 2 is out of bounds for dimension 0 with size 2 오류
                     sr_patch.append(self.sr_imgs[img_idx][:, y_start: y_start+self.opt.patch_len, x_start: x_start+self.opt.patch_len])
                     num_valid = 0

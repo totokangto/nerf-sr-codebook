@@ -8,7 +8,15 @@ opencv-python
 tensorboard
 kornia
 einops
+<<<<<<< HEAD
 imageio==2.9.0
 
 torch==1.8.1
 torchvision==0.9.1
+=======
+imageio
+#imageio==2.9.0
+
+#torch==1.8.1
+#torchvision==0.9.1
+>>>>>>> pretrained_cb
