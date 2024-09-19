@@ -4,8 +4,8 @@ H=378
 accelerator="dp"
 downscale=2
 batch_size=32
-option="cb_l1_256_512"
-pretrained='pretrained_cb_100_2'
+option="cb_feature_64_3"
+pretrained='pt_cb_feature_50_2'
 
 python train_refine.py --name llff-refine-$dataset-${H}x${W}-ni${N_importance}-${accelerator}-ds${downscale}-${option} --accelerator $accelerator \
     --dataset_mode llff_refine --dataset_root /local_datasets/nerf_llff_data/${dataset} \

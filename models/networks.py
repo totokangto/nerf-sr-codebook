@@ -9,6 +9,9 @@ from torch.nn.parallel.distributed import DistributedDataParallel
 from .embedding import BaseEmbedding
 from utils.utils import find_class_using_name
 
+from models.residual import ResidualStack
+from models.encoder import Encoder
+
 
 def init_weights(net, init_type='normal', init_gain=0.02):
     """Initialize network weights.
@@ -111,7 +114,8 @@ def get_scheduler(optimizer, opt, last_epoch=-1):
             t = max(0, epoch + 1 - opt.n_epochs + opt.n_epochs_decay) / float(opt.n_epochs_decay + 1)
             lr = math.exp(math.log(opt.lr) * (1 - t) + math.log(opt.lr_final) * t)
             return lr / opt.lr
-        scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda_rule, last_epoch=last_epoch)
+        scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda_rule)
+        scheduler.last_epoch = last_epoch
     elif opt.lr_policy == 'step':
         scheduler = lr_scheduler.StepLR(optimizer, step_size=opt.lr_decay_epochs, gamma=opt.lr_decay_gamma, last_epoch=last_epoch)
     else:
@@ -343,7 +347,7 @@ def get_norm_layer(norm_type='instance'):
     else:
         raise NotImplementedError('normalization layer [%s] is not found' % norm_type)
     return norm_layer
-
+'''
 class UnetGenerator(nn.Module, Configurable):
     """Create a Unet-based generator"""
     @staticmethod
@@ -442,6 +446,69 @@ class UnetSkipConnectionBlock(nn.Module):
             return self.model(x)
         else:   # add skip connections
             return torch.cat([x, self.model(x)], 1)
+'''
+
+
+class UnetGenerator(nn.Module, Configurable):
+    @staticmethod
+    def modify_commandline_options(parser):
+        parser.add_argument('--in_dim', type=int, default=3)
+        parser.add_argument('--h_dim', type=int, default=128)
+        parser.add_argument('--n_res_layers', type=int, default=2)
+        parser.add_argument('--res_h_dim', type=int, default=32)
+        return parser
+
+    def __init__(self, opt):
+        """Construct a Unet generator"""
+        super(UnetGenerator, self).__init__()
+
+        self.opt = opt
+        embedding_dim = opt.embedding_dim
+        in_dim = opt.in_dim
+        h_dim = opt.h_dim
+        n_res_layers = opt.n_res_layers
+        res_h_dim = opt.res_h_dim
+        kernel = 4
+        stride = 2
+
+        self.encoder = Encoder(in_dim,h_dim,n_res_layers,res_h_dim)
+        self.pre_quantization_conv = nn.Conv2d(
+            h_dim, embedding_dim, kernel_size=1, stride=1)
+
+        self.up_1 =nn.Sequential(
+            nn.ConvTranspose2d(
+                embedding_dim*2, h_dim, kernel_size=1, stride=1),
+                ResidualStack(h_dim, h_dim, res_h_dim, n_res_layers)
+        )
+ 
+        self.up_2 = nn.Sequential(
+            nn.ConvTranspose2d(h_dim, h_dim ,
+                               kernel_size=kernel-1, stride=stride-1, padding=1)
+        )
+
+        self.up_3 = nn.Sequential(
+            nn.ReLU(),
+            nn.ConvTranspose2d(h_dim, h_dim//2, kernel_size=kernel,
+                               stride=stride, padding=1)
+        )
+
+        self.up_4 = nn.Sequential(
+            nn.ReLU(),
+            nn.ConvTranspose2d(h_dim//2, 3, kernel_size=kernel,
+                               stride=stride, padding=1)
+        )
+        
+        
+    def forward(self, x,z_q):
+        z = self.encoder(x)
+        z = self.pre_quantization_conv(z)
+        x = torch.cat([z, z_q], dim=1) # 128,16,16
+        x1 = self.up_1(x) 
+        x2 = self.up_2(x1)
+        x3 = self.up_3(x2)
+        x4 = self.up_4(x3)
+        return x4
+
 
 class ResnetGenerator(nn.Module):
     """Resnet-based generator that consists of Resnet blocks between a few downsampling/upsampling operations.

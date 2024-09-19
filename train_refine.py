@@ -50,10 +50,12 @@ def main(rank):
         
     model = create_model(opt)      # create a model given opt.model and other options
     current_epoch = model.setup(opt)               # regular setup: load and print networks; create schedulers
-    
     total_iters = current_epoch * len(dataset.dataloader)      # the total number of training iterations
     writer = create_writer(opt)
-    for epoch in range(current_epoch + 1, opt.n_epochs + 1):    # outer loop for different epochs; we save the model by <epoch_count>, <epoch_count>+<save_latest_freq>
+
+    print(f'---------current : {current_epoch}')
+    for epoch in range(current_epoch + 1, current_epoch + opt.n_epochs + 1):    # outer loop for different epochs; we save the model by <epoch_count>, <epoch_count>+<save_latest_freq>
+
         epoch_start_time = time.time()  # timer for entire epoch
         iter_data_time = time.time()    # timer for data loading per iteration
         epoch_iter = 0                  # the number of training iterations in current epoch, reset to 0 every epoch
