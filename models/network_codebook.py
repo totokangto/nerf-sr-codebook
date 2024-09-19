@@ -1,16 +1,5 @@
 import torch
 import torch.nn as nn
-<<<<<<< HEAD
-
-# self.codebook = Codebook(opt.code_size, opt.num_codes).to(self.device)
-# codebook_features = self.netEnhancer(self.data_sr_patch, data_ref_patches)
-# generated_patches = self.codebook(codebook_features)
-
-class Codebook(nn.Module):
-    def __init__(self, code_size, num_codes):
-        super(Codebook, self).__init__()
-        self.codes = nn.Parameter(torch.randn(num_codes, code_size))
-=======
 import torch.nn.functional as F
 from models.encoder import Encoder
 from models.decoder import Decoder
@@ -21,7 +10,6 @@ class Codebook(nn.Module):
     def __init__(self, embedding_dim, num_embeddings):
         super(Codebook, self).__init__()
         self.codes = nn.Parameter(torch.randn(num_embeddings, embedding_dim))
->>>>>>> pretrained_cb
 
     def forward(self, features):
         # Calculate distances between features and codebook entries
@@ -32,35 +20,6 @@ class Codebook(nn.Module):
         return self.codes[indices]
 
 class VQCodebook(nn.Module):
-<<<<<<< HEAD
-    def __init__(self, code_size, num_codes):
-        super(VQCodebook, self).__init__()
-        self.num_codes = num_codes
-        self.code_size = code_size
-        self.embedding = nn.Embedding(num_codes, code_size)
-        self.embedding.weight.data.uniform_(-1 / num_codes, 1 / num_codes)
-
-    def forward(self, z):
-        # Flatten input
-        # z_flattened = z.view(-1, self.code_size)
-        # Flatten input using reshape instead of view
-        z_flattened = z.reshape(-1, self.code_size)
-
-        # Calculate distances between z and embedding
-        dists = torch.cdist(z_flattened, self.embedding.weight)
-        
-        # Get the closest codebook entry
-        encoding_indices = torch.argmin(dists, dim=1).unsqueeze(1)
-
-        # Quantize the input using the closest codebook entry
-        z_q = self.embedding(encoding_indices).view_as(z)
-
-        # Calculate VQ Losses
-        commitment_loss = torch.mean((z_q.detach() - z) ** 2)
-        codebook_loss = torch.mean((z_q - z.detach()) ** 2)
-        
-        return z_q, codebook_loss, commitment_loss, encoding_indices
-=======
     def __init__(self, embedding_dim, num_embeddings, initial_vectors=None):
         super(VQCodebook, self).__init__()
         self.num_embeddings = num_embeddings
@@ -133,4 +92,3 @@ class VQCodebook(nn.Module):
         # Initialize the specific embedding at the given index
         with torch.no_grad():
             embedding_layer.weight[index].copy_(vector)
->>>>>>> pretrained_cb
